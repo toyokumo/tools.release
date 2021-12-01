@@ -1,0 +1,4 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.10.3"}
+        io.forward/semver {:mvn/version "0.1.0"}
+        pogonos/pogonos {:mvn/version "0.1.1"}}}
