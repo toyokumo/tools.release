@@ -6,6 +6,13 @@
    (java.time
     Instant)))
 
+(defn- move-zloc-to-root
+  [zloc]
+  (loop [zloc zloc]
+    (if-let [zloc' (z/up zloc)]
+      (recur zloc')
+      zloc)))
+
 (defn- update-value-string [zloc value-symbol f]
   (some-> zloc
           (z/find-value z/next value-symbol)
@@ -24,6 +31,7 @@
                              v'))
         content (some-> zloc
                         (update-value-string 'version update-version-f)
+                        (move-zloc-to-root)
                         (update-value-string 'generated-at (constantly (str (Instant/now))))
                         (z/root-string))]
     (when content
