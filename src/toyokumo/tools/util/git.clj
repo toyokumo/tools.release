@@ -9,6 +9,14 @@
   (-> (apply sh/sh commands)
       println))
 
+(defn assert-committed
+  "cf. https://github.com/technomancy/leiningen/blob/master/src/leiningen/vcs.clj"
+  []
+  (let [res (with-out-str
+              (sh+ "git" "status"))]
+    (when (re-find #"Changes (not staged for commit|to be committed)" res)
+      (throw (AssertionError. "There are uncommitted changes")))))
+
 (defn commit-all-changed!
   [commit-message]
   (sh+ "git" "commit" "-a" "-m" commit-message))
