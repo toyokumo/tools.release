@@ -2,4 +2,10 @@
  :deps {org.clojure/clojure {:mvn/version "1.10.3"}
         io.forward/semver {:mvn/version "0.1.0"}
         metosin/malli {:mvn/version "0.6.2"}
-        rewrite-clj/rewrite-clj {:mvn/version "1.0.699-alpha"}}}
+        rewrite-clj/rewrite-clj {:mvn/version "1.0.699-alpha"}}
+
+ :aliases {:dev {:extra-paths ["test"]
+                 :extra-deps {lambdaisland/kaocha {:mvn/version "1.60.945"}
+                              lambdaisland/kaocha-cloverage {:mvn/version "1.0.75"}}}
+           :test {:main-opts ["-m" "kaocha.runner"]}}}
+
