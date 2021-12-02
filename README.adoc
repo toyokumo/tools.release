@@ -1,69 +1,130 @@
-= FIXME
+= toyokumo/tools.release
 
+Common operations for releasing new version.
+
+== Installation
+
+* deps.edn
++
 [source,clojure]
 ----
 {:aliases {:release {:extra-deps {com.github.toyokumo/tools.release {:git/sha "..."}}
                      :ns-default toyokumo.tools.release}}}
 ----
-
-== Requirements
-
-- `.version`
-
-== Usage
+* Run task
++
 [source,sh]
 ----
-clojure -X:release TASK [OPTIONS]
+clojure -X:release ${TASK_NAME} ${RELEASE_OPTION}
 ----
 
-=== print-version
+== Getting started
 
+. Create version file
+** Run `clojure -X:release init :version-file "/path/to/version.clj"`
+** Edit `/path/to/version.clj` as you like.
+
+. Prepare the Makefile
++
+[source,Makefile,indent=2]
+----
+VERSION_FILE := /path/to/version.clj
+RELEASE_OPTION := :version-file ${VERSION_FILE}
+
+pre-prod-deploy:
+	clojure -X:release pre-prod-deploy ${RELEASE_OPTION}
+
+post-prod-deploy:
+	clojure -X:release post-prod-deploy ${RELEASE_OPTION}
+----
+** If you'd like to use branches other than `main`/`develop` as your main/development branchs, please add the following to `RELEASE_OPTION`.
++
+[source,Makefile]
+----
+RELEASE_OPTION := :version-file ${VERSION_FILE} :main-branch master :develop-branch dev
+----
+
+. Release!
++
 [source,sh]
 ----
-$ clojure -X:release print-version
+make pre-prod-deploy
+# ...
+# Deploy application
+# ...
+make post-prod-deploy
 ----
 
-=== bump-patch-version
+== Release options
+
+[cols="2a,1,7a"]
+|===
+| Option name | Required | Description
+
+| `:version-file`
+| Yes
+| Path to the file which defines version string.
+
+| `:main-branch`
+| No
+| Default value is `"main"`.
+
+| `:develop-branch`
+| No
+| Default value is `"develop"`.
+
+|===
+
+== All tasks
+
+[cols="4,6a"]
+|===
+| Task name | Description
+
+| init
+| Generate a version file template in `:version-file`.
 
 
-=== bump-minor-version
+| print-version
+| Print the current version.
 
 
-=== bump-major-version
+| bump-patch-version
+| Bump the patch version in `:version-file`.
 
+| bump-minor-version
+| Bump the minor version in `:version-file`.
 
-=== add-snapshot
+| bump-major-version
+| Bump the major version in `:version-file`.
 
+| add-snapshot
+| Add `-SNAPSHOT` to the current version in `:version-file`.
 
-=== delete-snapshot
+| delete-snapshot
+| Delete `-SNAPSHOT` from the current version in `:version-file`.
 
+| pre-prod-deploy
+| Task before deploying to the production.
 
-=== generate-version-file
+- Delete `-SNAPSHOT` from the version string
 
-[source,sh]
-----
-$ clojure -X:release generate-version-file :version-ns "foo.version" :version-file "src/foo/version.clj"
-----
+| post-prod-deploy
+| Task after deploying to the production.
 
-=== pre-prod-deploy
+- Delete `-SNAPSHOT` from the version string
+- Commit all changes
+- Create a new tag with current version string
+- Push to `:main-branch`
+- Fetch `:develop-branch`
+- Switch to `:develop-branch`
+- Rebase changes between `:main-branch`
+- Bump the patch version
+- Add `-SNAPSHOT` to the version string
+- Commit all changes
+- Push to `:develop-branch`
 
-[source,sh]
-----
-$ clojure -X:release pre-prod-deploy :version-ns "foo.version" :version-file "src/foo/version.clj"
-----
-
-=== post-prod-deploy
-
-[source,sh]
-----
-$ clojure -X:release post-prod-deploy :version-ns "foo.version" :version-file "src/foo/version.clj"
-----
-
-* FIXME
-* Optional arguments
-** `:main-branch` (default: `"main"`)
-** `:develop-branch` (default: `"develop"`)
-
+|===
 
 == License
 
