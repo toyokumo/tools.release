@@ -1,5 +1,7 @@
 = toyokumo/tools.release
 
+image:https://github.com/toyokumo/tools.release/actions/workflows/lint-and-test.yml/badge.svg["GitHub Actions for lint-and-test workflow", link="https://github.com/toyokumo/tools.release/actions/workflows/lint-and-test.yml"]
+
 Common operations for releasing new version.
 
 == Installation
