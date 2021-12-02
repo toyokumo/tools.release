@@ -1,0 +1,56 @@
+name: Lint and Test
+
+on: push
+
+jobs:
+  clj_style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: 0918nobita/setup-cljstyle@v0.5.4
+        with:
+          cljstyle-version: 0.15.0
+      - run: cljstyle check --timeout-trace --report
+
+  clj_kondo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: DeLaGuardo/setup-clj-kondo@master
+        with:
+          version: '2021.12.01'
+      - run: clj-kondo --lint src:test
+
+  test:
+    needs: [clj_style, clj_kondo]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+          java-package: jdk
+          architecture: x64
+
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: '1.10.3.1040'
+
+      - name: Show versions
+        run: |
+          java -version
+          clojure --version
+
+      - name: Cache dependencies
+        uses: toyokumo/cache@main
+        with:
+          path: |
+            ~/.m2
+          key: clj-cache-${{ hashFiles('**/deps.edn') }}
+          restore-keys: |
+            clj-cache-
+
+      - name: Run tests
+        run: make test
