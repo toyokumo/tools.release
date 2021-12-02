@@ -12,11 +12,16 @@
           (z/right)
           (z/edit f)))
 
+(defn- assert-semver [v]
+  (assert (v/valid? v) "Must be semantic version"))
+
 (defn update-version-file! [file-path f]
   (let [zloc (z/of-file file-path)
         update-version-f (fn [v]
-                           (assert (v/valid? v) "Must be semantic version")
-                           (f v))
+                           (assert-semver v)
+                           (let [v' (f v)]
+                             (assert-semver v')
+                             v'))
         content (some-> zloc
                         (update-value-string 'version update-version-f)
                         (update-value-string 'generated-at (constantly (str (Instant/now))))
