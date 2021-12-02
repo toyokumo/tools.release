@@ -1,162 +1,123 @@
 (ns toyokumo.tools.release
   (:require
    [clojure.java.io :as io]
-   [clojure.java.shell :as sh]
    [clojure.string :as str]
-   [pogonos.core :as pg]
-   [semver.core :as v])
-  (:import
-   (java.time
-    Instant)))
+   [malli.core :as m]
+   [malli.error :as me]
+   [malli.transform :as mt]
+   [semver.core :as v]
+   [toyokumo.tools.util.git :as git]
+   [toyokumo.tools.util.version :as version]))
 
-(def ^:private version-file
-  ".version")
+(def -option
+  [:map {:closed true}
+   [:version-file :string]
+   [:main-branch [:string {:default "main"}]]
+   [:develop-branch [:string {:default "develop"}]]])
 
-(def ^:private default-main-branch
-  "main")
+(defn- stringify-map-vals [m]
+  (reduce-kv #(assoc %1 %2 (str %3)) {} m))
 
-(def ^:private default-develop-branch
-  "develop")
+(defn- validate [option]
+  (let [option (stringify-map-vals option)
+        option (m/encode -option option mt/default-value-transformer)]
+    (when-let [err (some-> (m/explain -option option)
+                           (me/humanize))]
+      (throw (AssertionError.  (str err))))
+    option))
 
-(defn- get-version []
-  (let [version (str/trim (slurp version-file))]
-    (assert (v/valid? version))
-    version))
-
-(defn- set-version! [version]
-  (assert (v/valid? (str version)))
-  (spit version-file (str version)))
-
-(defn- sh+
-  "shを実行して結果を出力する
-  TODO 出力はexitコードをみるなど改善する"
-  [& commands]
-  (-> (apply sh/sh commands)
-      println))
-
-(defn- commit-all-changed
-  []
-  (let [version (get-version)]
-    (sh+ "git" "commit" "-a" "-m" (str "version " version))))
-
-(defn- tag-this-version
-  []
-  (let [version (get-version)]
-    (sh+ "git" "tag" "-a" (str "v" version) "-m" (str "version " version))))
-
-(defn- push-to
-  [branch-name]
-  (sh+ "git" "push" "origin" branch-name))
-
-(defn- push-to-main
-  []
-  (sh+ "git" "push" "origin" "main"))
-
-(defn- push-to-develop
-  []
-  (sh+ "git" "push" "origin" "develop"))
-
-(defn- push-all-tags
-  []
-  (sh+ "git" "push" "--tags" "origin"))
-
-(defn- fetch-develop
-  []
-  (sh+ "git" "fetch" "origin" "develop"))
-
-(defn- switch-to-develop
-  []
-  (sh+ "git" "switch" "develop"))
-
-(defn- rebase-main
-  []
-  (sh+ "git" "rebase" "main"))
-
-;;; scripts
+(defn init
+  [option]
+  (let [s (slurp (io/resource "version_template.txt"))]
+    (-> (validate option)
+        (:version-file)
+        (spit s))))
 
 (defn print-version
-  [& _]
-  (println (get-version)))
+  [option]
+  (-> (validate option)
+      (:version-file)
+      (version/get-version)
+      (println)))
 
 (defn bump-patch-version
-  [& _]
-  (->> (get-version)
-       (v/transform v/increment-patch)
-       set-version!))
+  [option]
+  (let [{:keys [version-file]} (validate option)]
+    (version/update-version-file!
+     version-file
+     #(v/transform v/increment-patch %))))
 
 (defn bump-minor-version
-  [& _]
-  (->> (get-version)
-       (v/transform v/increment-minor)
-       set-version!))
+  [option]
+  (let [{:keys [version-file]} (validate option)]
+    (version/update-version-file!
+     version-file
+     #(v/transform v/increment-minor %))))
 
 (defn bump-major-version
-  [& _]
-  (->> (get-version)
-       (v/transform v/increment-major)
-       set-version!))
+  [option]
+  (let [{:keys [version-file]} (validate option)]
+    (version/update-version-file!
+     version-file
+     #(v/transform v/increment-major %))))
 
 (defn add-snapshot
-  [& _]
-  (-> (get-version)
-      (str "-SNAPSHOT")
-      set-version!))
+  [option]
+  (let [{:keys [version-file]} (validate option)]
+    (version/update-version-file!
+     version-file
+     #(if (str/ends-with? % "-SNAPSHOT")
+        %
+        (str % "-SNAPSHOT")))))
 
 (defn delete-snapshot
-  [& _]
-  (-> (get-version)
-      (str/replace "-SNAPSHOT" "")
-      set-version!))
-
-(defn generate-version-file
   [option]
-  (assert (every? #(contains? option %) [:version-ns :version-file])
-          ":ns-name and :output is required")
-  (let [file (io/resource "version_template.mustache")
-        content (pg/render-file file {:ns-name (:version-ns option)
-                                      :version (get-version)
-                                      :generated-at (str (Instant/now))})]
-    (spit (str (:version-file option)) content)))
+  (let [{:keys [version-file]} (validate option)]
+    (version/update-version-file!
+     version-file
+     #(str/replace % "-SNAPSHOT" ""))))
 
 (defn pre-prod-deploy
-  "本番環境へのデプロイ前のタスク
-  - mainでスタート
-  - バージョンから-SNAPSHOTを外す
-  - バージョンを定数へと書き出し
+  "Task before deploying to the production.
 
-  デプロイに成功してからコミットしたりタグを打ったりするのでデプロイ前はここまで"
+  - Start with :main-branch
+  - Delete '-SNAPSHOT' from the version string
+
+  Only these operations since we will commit and create a new tag after the deployment is successful."
   [option]
-  (delete-snapshot)
-  (generate-version-file option))
+  (delete-snapshot option))
 
 (defn post-prod-deploy
-  "本番環境へのデプロイ後のタスク
-  - mainでスタート
-  - バージョンから-SNAPSHOTを外す
-  - バージョンを定数へと書き出し
-  - コミット
-  - タグを打つ
-  - プッシュ
-  - origin/developをfetch
-  - developにswitch
-  - mainをrebase
-  - パッチバージョンをあげる
-  - -SNAPSHOTをつける
-  - バージョンを定数へと書き出し
-  - コミット
-  - プッシュ"
+  "Task after deploying to the production.
+
+  - Start with :main-branch
+  - Delete '-SNAPSHOT' from the version string
+  - Commit all changes
+  - Create a new tag with current version string
+  - Push to :main-branch
+  - Fetch :develop-branch
+  - Switch to :develop-branch
+  - Rebase changes between :main-branch
+  - Bump the patch version
+  - Add '-SNAPSHOT' to the version string
+  - Commit all changes
+  - Push to :develop-branch"
   [option]
-  (delete-snapshot)
-  (generate-version-file option)
-  (commit-all-changed)
-  (tag-this-version)
-  (push-to (:main-branch option default-main-branch))
-  (push-all-tags)
-  (fetch-develop)
-  (switch-to-develop)
-  (rebase-main)
-  (bump-patch-version)
-  (add-snapshot)
-  (generate-version-file option)
-  (commit-all-changed)
-  (push-to (:develop-branch option default-develop-branch)))
+  (let [{:keys [version-file main-branch develop-branch]} (validate option)]
+    (delete-snapshot option)
+
+    (let [version (version/get-version version-file)]
+      (git/commit-all-changed! (str "version " version " [skip ci]"))
+      (git/tag-this-version! version))
+
+    (git/push-to! main-branch)
+    (git/push-all-tags!)
+    (git/fetch! develop-branch)
+    (git/switch-to! develop-branch)
+    (git/rebase! main-branch)
+
+    (bump-patch-version option)
+    (add-snapshot option)
+    (let [version (version/get-version version-file)]
+      (git/commit-all-changed! (str "version " version " [skip ci]"))
+      (git/push-to! develop-branch))))
