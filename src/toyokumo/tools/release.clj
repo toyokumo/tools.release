@@ -85,6 +85,7 @@
 
   Only these operations since we will commit and create a new tag after the deployment is successful."
   [option]
+  (git/assert-committed)
   (delete-snapshot option))
 
 (defn post-prod-deploy
