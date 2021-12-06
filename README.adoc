@@ -75,6 +75,10 @@ make post-prod-deploy
 | No
 | Default value is `"develop"`.
 
+| `:tag-prefix`
+| No
+| Default value is `"v"`.
+
 |===
 
 == All tasks

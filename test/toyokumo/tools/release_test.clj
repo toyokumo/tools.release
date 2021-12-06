@@ -105,3 +105,17 @@
                   ["git" "commit" "-a" "-m" "version 0.0.2-SNAPSHOT [skip ci]"]
                   ["git" "push" "origin" "dev"]]
                  @git-ops))))))
+
+(t/deftest post-prod-deploy-custom-tag-prefix-test
+  (let [git-ops (atom [])]
+    (with-redefs [git/sh+ (fn [& commands]
+                            (swap! git-ops conj commands))]
+      (t/is (= "0.0.1-SNAPSHOT" (get-test-version)))
+
+      (sut/post-prod-deploy (assoc test-option :tag-prefix ""))
+      (contains? (set @git-ops) ["git" "tag" "-a" "0.0.1" "-m" "version 0.0.1"])
+      (t/is (= "0.0.2-SNAPSHOT" (get-test-version)))
+
+      (sut/post-prod-deploy (assoc test-option :tag-prefix "ver"))
+      (contains? (set @git-ops) ["git" "tag" "-a" "ver0.0.2" "-m" "version 0.0.2"])
+      (t/is (= "0.0.3-SNAPSHOT" (get-test-version))))))

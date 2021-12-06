@@ -22,8 +22,8 @@
   (sh+ "git" "commit" "-a" "-m" commit-message))
 
 (defn tag-this-version!
-  [version-str]
-  (sh+ "git" "tag" "-a" (str "v" version-str) "-m" (str "version " version-str)))
+  [tag-name tag-message]
+  (sh+ "git" "tag" "-a" tag-name "-m" tag-message))
 
 (defn push-to!
   [branch-name]

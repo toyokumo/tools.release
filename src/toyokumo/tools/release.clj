@@ -12,6 +12,7 @@
 (def -option
   [:map {:closed true}
    [:version-file :string]
+   [:tag-prefix [:string {:default "v"}]]
    [:main-branch [:string {:default "main"}]]
    [:develop-branch [:string {:default "develop"}]]])
 
@@ -104,12 +105,14 @@
   - Commit all changes
   - Push to :develop-branch"
   [option]
-  (let [{:keys [version-file main-branch develop-branch]} (validate option)]
+  (let [{:keys [version-file main-branch develop-branch tag-prefix]} (validate option)]
     (delete-snapshot option)
 
     (let [version (version/get-version version-file)]
       (git/commit-all-changed! (str "version " version " [skip ci]"))
-      (git/tag-this-version! version))
+      (git/tag-this-version!
+       (str tag-prefix version)
+       (str "version " version)))
 
     (git/push-to! main-branch)
     (git/push-all-tags!)
