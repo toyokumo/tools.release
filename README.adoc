@@ -10,7 +10,8 @@ Common operations for releasing new version.
 +
 [source,clojure]
 ----
-{:aliases {:release {:extra-deps {com.github.toyokumo/tools.release {:git/sha "..."}}
+{:aliases {:release {:extra-deps {com.github.toyokumo/tools.release {:git/tag "..."
+                                                                     :git/sha "..."}}
                      :ns-default toyokumo.tools.release}}}
 ----
 * Run task
